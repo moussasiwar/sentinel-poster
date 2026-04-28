@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel system</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --panel-bg: rgba(255, 255, 255, 0.4);
+            --primary: #024ba8;
+            --primary-glow: #01d6f6;
+            --danger: #e11d48;
+            --success: #059669;
+            --warning: #d97706;
+            --text: #0f172a;
+            --text-dim: #475569;
+            --border: #e2e8f0;
+            --cyan: #024ba8;
+            --accent: #9639fa;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 100%);
+            color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+        }
+
+        .header-title { text-align: center; margin-bottom: 30px; }
+        .header-title h1 { 
+            background: linear-gradient(to right, var(--primary-glow), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem; letter-spacing: 2px; margin: 0; text-transform: uppercase; 
+        }
+        .header-title p { color: var(--text-dim); font-family: monospace; margin: 5px 0 0 0; }
+
+        .main-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 20px; width: 100%; max-width: 1300px; margin-bottom: 20px;
+        }
+
+        .panel {
+            background: var(--panel-bg); 
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 12px; padding: 20px; 
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05);
+        }
+
+        .layer-title {
+            margin-top: 0; font-size: 0.85rem; color: var(--primary); 
+            letter-spacing: 1px; border-bottom: 1px solid var(--border);
+            padding-bottom: 8px; margin-bottom: 15px; text-transform: uppercase;
+        }
+
+        .controls { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; width: 100%; }
+
+        .error-select {
+            background: #ffffff; color: var(--text);
+            border: 1px solid var(--border); padding: 10px; border-radius: 6px; font-family: monospace;
+            cursor: pointer;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-simulate {
+            background: var(--danger); color: white;
+            border: none; padding: 12px 24px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; 
+            transition: 0.2s; box-shadow: 0 2px 4px rgba(225, 29, 72, 0.2);
+        }
+
+        .btn-simulate:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 4px 8px rgba(225, 29, 72, 0.3); }
+        .btn-simulate:disabled { background: #cbd5e1; cursor: not-allowed; box-shadow: none; color: #64748b; }
+
+        /* TELEMETRY */
+        .telemetry-box {
+            background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 6px; padding: 15px; font-family: monospace;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .mismatch { color: var(--danger) !important; font-weight: bold; text-shadow: 0 0 8px var(--danger); }
+
+        /* TERMINAL */
+        .terminal {
+            background: rgba(255, 255, 255, 0.7); color: #0f172a;
+            font-family: 'Consolas', 'JetBrains Mono', monospace; font-size: 0.9rem;
+            padding: 15px; border-radius: 6px; height: 170px; overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.6); line-height: 1.6;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        /* NODES */
+        .nodes-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 1300px; }
+
+        .node-card {
+            background: rgba(224, 242, 254, 0.6); border: 1px solid rgba(186, 230, 253, 0.8); 
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border-radius: 12px; padding: 20px; position: relative; min-height: 180px;
+            display: flex; flex-direction: column; transition: 0.3s;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
+
+        .node-card.isolated { border: 2px dashed var(--danger); background: #fff1f2; }
+        .node-card.recycling { border: 2px solid var(--primary); animation: pulse-recycle 2s infinite; background: #dbeafe; }
+
+        .pod-container {
+            flex-grow: 1; border: 1px dashed var(--border); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;
+            background: #f8fafc;
+        }
+
+        .pod-ia {
+            width: 90%; height: 60px; background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white; border-radius: 8px; display: flex; align-items: center;
+            justify-content: center; font-weight: bold; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .pod-ia.corrupted { background: linear-gradient(135deg, #7f1d1d, #f43f5e); animation: shake 0.2s infinite; }
+
+        .pod-placeholder { color: var(--text-dim); font-family: monospace; font-size: 0.8rem; text-align: center; }
+
+        .status-overlay {
+            position: absolute; top: 50%; left: 0; width: 100%; text-align: center;
+            font-weight: bold; font-size: 0.8rem; font-family: monospace;
+            transform: translateY(-50%); opacity: 0; transition: 0.3s; z-index: 10;
+        }
+
+        @keyframes pulse-recycle { 0%, 100% { box-shadow: inset 0 0 15px rgba(2, 75, 168, 0.3); } 50% { box-shadow: inset 0 0 5px rgba(2, 75, 168, 0.1); } }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -1px); } 100% { transform: translate(1px, -1px); } }
+        @keyframes heartbeat { 0%,100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.4); } 50% { box-shadow: 0 0 0 8px rgba(5,150,105,0); } }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+        .live-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--danger); color: white; font-size: 0.7rem;
+            font-weight: bold; padding: 3px 10px; border-radius: 20px;
+            letter-spacing: 1px; margin-top: 6px;
+        }
+        .live-dot { width: 7px; height: 7px; background: white; border-radius: 50%; animation: blink 1s infinite; }
+
+        .node-card.healthy-pulse { animation: heartbeat 2s infinite; }
+
+        .sim-progress-wrap { width: 100%; max-width: 1300px; margin-bottom: 15px; display: none; }
+        .sim-progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+        .sim-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary-glow), var(--accent)); border-radius: 3px; transition: width 0.5s ease; }
+        .sim-progress-label { font-size: 0.75rem; color: var(--text-dim); text-align: right; margin-top: 3px; font-family: monospace; }
+
+        .gauge-wrap { display: flex; align-items: center; gap: 15px; margin-top: 12px; }
+        .gauge-label { font-size: 0.78rem; color: var(--text-dim); }
+        .gauge-bar { flex: 1; height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; }
+        .gauge-fill { height: 100%; width: 5%; background: var(--success); border-radius: 5px; transition: width 1.2s ease, background 1.2s ease; }
+        .gauge-pct { font-size: 0.8rem; font-weight: bold; min-width: 40px; text-align: right; transition: color 0.5s; }
+
+        .downtime-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-family: monospace; font-size: 0.8rem; }
+        .downtime-counter { font-size: 1.1rem; font-weight: bold; color: var(--danger); }
+        .downtime-label { color: var(--text-dim); }
+
+        .summary-card {
+            width: 100%; max-width: 1300px; box-sizing: border-box;
+            background: linear-gradient(135deg, rgba(2,75,168,0.08), rgba(150,57,250,0.08));
+            border: 1px solid rgba(2,75,168,0.2); border-radius: 12px; padding: 20px;
+            margin-top: 15px; display: none; animation: fadeInUp 0.6s ease;
+            backdrop-filter: blur(12px);
+        }
+        .summary-card h3 { margin: 0 0 15px 0; font-size: 0.9rem; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+        .summary-table { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .summary-col { border-radius: 8px; padding: 12px; text-align: center; }
+        .summary-col.header { background: transparent; font-size: 0.75rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; }
+        .summary-col.bad { background: rgba(225,29,72,0.08); border: 1px solid rgba(225,29,72,0.2); }
+        .summary-col.good { background: rgba(5,150,105,0.08); border: 1px solid rgba(5,150,105,0.2); }
+        .summary-metric { font-size: 1.3rem; font-weight: bold; }
+        .summary-metric.red { color: var(--danger); }
+        .summary-metric.green { color: var(--success); }
+        .summary-sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 3px; }
+
+        .zero-downtime-badge {
+            display: inline-block; background: var(--success); color: white;
+            font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px;
+            margin-top: 5px; animation: fadeInUp 0.5s ease;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; gap: 15px; }
+            .nodes-container { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; align-items: stretch; gap: 10px; }
+            .btn-simulate { padding: 15px; font-size: 1rem; }
+            .header-title h1 { font-size: 1.8rem; }
+            body { padding: 10px; }
+            .telemetry-box { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .telemetry-box > div { text-align: left !important; }
+            .summary-table { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-title">
+    <h1>Sentinel system</h1>
+    <p>SDC Mitigation & Auto-Healing Infrastructure</p>
+</div>
+
+<!-- ADD THIS DIRECTLY AFTER <body> -->
+     <!-- DESCRIPTION -->
+    <div style="
+        max-width:1000px;
+        margin:20px auto 0 auto;
+        background:white;
+        padding:22px;
+        border-radius:16px;
+        font-size:24px;
+        line-height:1.6;
+        color:#24324d;
+        box-shadow:0 6px 18px rgba(0,0,0,0.08);
+        font-family:Arial, Helvetica, sans-serif;
+    ">
+        Sentinel detects node risks early, moves workloads instantly to healthy nodes,
+        then reuses degraded hardware for safe tasks—ensuring
+        <b style="color:#0d5bd7;">zero downtime</b>,
+        <b style="color:#0d5bd7;">lower cost</b>,
+        and <b style="color:#0d5bd7;">trusted AI performance</b>.
+    </div>
+
+<div style="text-align:center; padding:25px 20px 10px 20px; ">
+
+    <!-- TOP IMAGE -->
+    <img src="C:\xampp\htdocs\full-methodology.png"
+         alt="Sentinel Infrastructure"
+         style="max-width:1000px; width:100%; border-radius:18px; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+
+   
+
+</div>
+
+<!-- KEEP ALL YOUR OLD CODE UNDER THIS -->
+<br><br>
+<div class="sim-progress-wrap" id="progress-wrap">
+    <div class="sim-progress-bar"><div class="sim-progress-fill" id="progress-fill"></div></div>
+    <div class="sim-progress-label" id="progress-label">Initializing...</div>
+</div>
+
+<div class="controls">
+    <select id="error-type" class="error-select">
+        <option value="Bit-Flip L1 Cache (Transient)">Type: Bit-Flip L1 Cache (Transient)</option>
+        <option value="Tensor Core Arithmetic Drift">Type: Tensor Core Arithmetic Drift</option>
+        <option value="VRAM ECC Escape (Weight Poisoning)">Type: VRAM ECC Escape (Weight Poisoning)</option>
+        <option value="NVLink Packet Poisoning (Interconnect)">Type: NVLink Packet Poisoning (Interconnect)</option>
+        <option value="Register File Bit-Flip">Type: Register File Bit-Flip</option>
+    </select>
+    <button class="btn-simulate" id="inject-btn" onclick="triggerSimulation()">INJECT HARDWARE ERROR (SDC)</button>
+</div>
+
+<div class="main-grid">
+    <div class="panel">
+        <h3 class="layer-title">❶ PREDICTION (Sentinel Cell Daemon on each Node)</h3>
+        <div class="telemetry-box">
+            <div>[Matrix A] x [Matrix B] = [C]</div>
+            <div style="text-align: right;">
+                <div>CPU Ref: 4.000000</div>
+                <div id="gpu-val" style="color:var(--success)">GPU Out: 4.000000</div>
+            </div>
+        </div>
+        <div id="sdc-status" style="margin-top: 10px; font-family: monospace; color: var(--success); font-weight: bold;">✓ INTEGRITY VERIFIED</div>
+        <div class="gauge-wrap">
+            <span class="gauge-label">SDC Risk Score:</span>
+            <div class="gauge-bar"><div class="gauge-fill" id="gauge-fill"></div></div>
+            <span class="gauge-pct" id="gauge-pct" style="color:var(--success)">5%</span>
+        </div>
+        <div class="downtime-row">
+            <span class="downtime-label">⏱ Recovery Timer:</span>
+            <span class="downtime-counter" id="downtime-counter">00:00</span>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 class="layer-title">❷ ACTION (Kubernetes Orchestration)</h3>
+        <div class="terminal" id="logs">
+            <div><span style="color: #64748b; margin-right: 8px;">[00:00:00]</span><span style="color: #0f172a;">Cluster status: Healthy. Monitoring heartbeats...</span></div>
+        </div>
+    </div>
+</div>
+
+<div class="panel" style="width: 100%; max-width: 1300px; box-sizing: border-box;">
+    <h3 class="layer-title">❸ RESULT (Continuous Performance & Hardware State)</h3>
+    <div class="nodes-container" style="max-width: 100%;">
+    <div class="node-card healthy-pulse" id="node-99998">
+        <div style="font-size: 0.9rem; margin-bottom: 15px; color: var(--cyan);">Node-99998 (Worker)</div>
+        <div class="pod-container"><span class="pod-placeholder">Tensor Processing...</span></div>
+        <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px; display: flex; justify-content: space-between;">
+            <span>Temp: 55°C</span><span>Volt: 1.2V</span>
+        </div>
+    </div>
+
+    <div class="node-card healthy-pulse" id="node-99999">
+        <div id="name-99999" style="font-size: 0.9rem; margin-bottom: 15px; color: var(--cyan);">Node-99999 (Worker)</div>
+        <div class="pod-container" id="container-99999">
+            <div class="pod-ia" id="active-pod">🧠 LLM Training</div>
+            <div class="status-overlay" id="overlay-99999"></div>
+        </div>
+        <div id="metrics-99999" style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px; display: flex; justify-content: space-between;">
+            <span>Temp: 64°C</span><span>Volt: 1.2V</span>
+        </div>
+    </div>
+
+    <div class="node-card healthy-pulse" id="node-100000">
+        <div style="font-size: 0.9rem; margin-bottom: 15px; color: var(--cyan);">Node-100000 (Standby)</div>
+        <div class="pod-container" id="container-100000">
+            <span class="pod-placeholder" id="placeholder-100000">Idle - Ready for Workload</span>
+        </div>
+        <div style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px; display: flex; justify-content: space-between;">
+            <span>Temp: 40°C</span><span>Volt: 0.9V</span>
+        </div>
+    </div>
+    </div>
+</div>
+
+<div class="summary-card" id="summary-card">
+    <h3>📊 Sentinel vs Traditional — Performance Outcome</h3>
+    <div class="summary-table">
+        <div class="summary-col header">Metric</div>
+        <div class="summary-col header bad">❌ Without Sentinel</div>
+        <div class="summary-col header good">✅ With Sentinel</div>
+        <div class="summary-col">Downtime</div>
+        <div class="summary-col bad"><div class="summary-metric red">4 Hours</div><div class="summary-sub">Full crash + manual fix</div></div>
+        <div class="summary-col good"><div class="summary-metric green">~1 Min</div><div class="summary-sub">Auto-healed by Sentinel</div></div>
+        <div class="summary-col">Reliability</div>
+        <div class="summary-col bad"><div class="summary-metric red">LOW</div><div class="summary-sub">Silent corruption risk</div></div>
+        <div class="summary-col good"><div class="summary-metric green">99.5%</div><div class="summary-sub">Continuous monitoring</div></div>
+        <div class="summary-col">Hardware Waste</div>
+        <div class="summary-col bad"><div class="summary-metric red">HIGH</div><div class="summary-sub">Node sits idle</div></div>
+        <div class="summary-col good"><div class="summary-metric green">0%</div><div class="summary-sub">Graceful re-assignment</div></div>
+    </div>
+</div>
+
+
+<script>
+    function addLog(msg, type = 'normal') {
+        const logs = document.getElementById('logs');
+        const div = document.createElement('div');
+        
+        const now = new Date();
+        const time = [
+            String(now.getHours()).padStart(2, '0'),
+            String(now.getMinutes()).padStart(2, '0'),
+            String(now.getSeconds()).padStart(2, '0')
+        ].join(':');
+        
+        const ts = `<span style="color: #64748b; margin-right: 8px;">[${time}]</span>`;
+
+        let prefix = "";
+        let textColor = "#0f172a";
+        if (type === 'crit') { prefix = `<span style="color: #e11d48; font-weight: bold; margin-right: 5px;">CRITICAL:</span>`; textColor = "#e11d48"; }
+        if (type === 'warn') { prefix = `<span style="color: #ea580c; font-weight: bold; margin-right: 5px;">WARNING:</span>`; textColor = "#ea580c"; }
+        if (type === 'api')  { prefix = `<span style="color: #9333ea; font-weight: bold; margin-right: 5px;">K8S-API:</span>`; textColor = "#9333ea"; }
+
+        div.innerHTML = `${ts}${prefix}<span style="color: ${textColor};">${msg}</span>`;
+        logs.appendChild(div);
+        logs.scrollTop = logs.scrollHeight;
+    }
+
+    function setGauge(pct, color) {
+        const fill = document.getElementById('gauge-fill');
+        const label = document.getElementById('gauge-pct');
+        if (!fill || !label) return;
+        fill.style.width = pct + '%';
+        fill.style.background = color;
+        label.textContent = pct + '%';
+        label.style.color = color;
+    }
+
+    function setProgress(pct, text) {
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-label').textContent = text;
+    }
+
+    let timerInterval = null;
+    function startTimer() {
+        let secs = 0;
+        timerInterval = setInterval(() => {
+            secs++;
+            const m = String(Math.floor(secs/60)).padStart(2,'0');
+            const s = String(secs % 60).padStart(2,'0');
+            document.getElementById('downtime-counter').textContent = m + ':' + s;
+        }, 1000);
+    }
+    function stopTimer() { clearInterval(timerInterval); }
+
+    function triggerSimulation() {
+        const btn = document.getElementById('inject-btn');
+        const pod = document.getElementById('active-pod');
+        const overlay = document.getElementById('overlay-99999');
+        btn.disabled = true;
+
+        // Show progress bar
+        document.getElementById('progress-wrap').style.display = 'block';
+        setProgress(5, 'SDC Detected...');
+        setGauge(75, '#e11d48');
+        startTimer();
+
+        // Remove heartbeat from affected node
+        document.getElementById('node-99999').classList.remove('healthy-pulse');
+
+        addLog(`SDC DETECTED: ${document.getElementById('error-type').value}`, 'crit');
+        document.getElementById('gpu-val').innerHTML = `GPU Out: 4.000<span class="mismatch">772</span>`;
+        document.getElementById('sdc-status').innerHTML = '❌ MATRIX COMPARISON FAILURE';
+        document.getElementById('sdc-status').style.color = 'var(--danger)';
+        pod.classList.add('corrupted');
+        pod.innerText = '⚠️ CORRUPTED DATA (SDC)';
+
+        setTimeout(() => {
+            setProgress(20, 'Isolating Node...');
+            addLog('1. Isolation signal broadcasted.', 'warn');
+            overlay.innerText = 'ISOLATION ACTIVE';
+            overlay.style.opacity = '1';
+            overlay.style.color = 'var(--danger)';
+            document.getElementById('node-99999').classList.add('isolated');
+            document.getElementById('name-99999').innerText = 'Node-99999 (ISOLATED)';
+            document.getElementById('name-99999').style.color = 'var(--warning)';
+        }, 1500);
+
+        setTimeout(() => {
+            setProgress(35, 'Cordoning Node...');
+            addLog('2. Cordon: Node-99999 marked Unschedulable.', 'api');
+        }, 2500);
+
+        setTimeout(() => {
+            setProgress(50, 'Draining Pod...');
+            addLog('3. Drain: Evicting corrupted Pod from hardware.', 'api');
+            pod.style.opacity = '0';
+            pod.style.transform = 'translateY(-50px)';
+        }, 3500);
+
+        setTimeout(() => {
+            setProgress(65, 'Migrating Workload...');
+            addLog('4. Schedule: Migrating workload to Node-100000.', 'api');
+            document.getElementById('container-99999').innerHTML = '<span class="pod-placeholder" style="color:var(--danger)">PROCESS TERMINATED</span>';
+            document.getElementById('placeholder-100000').style.display = 'none';
+            const newPod = document.createElement('div');
+            newPod.className = 'pod-ia';
+            newPod.innerText = '🧠 LLM Training (Healthy)';
+            document.getElementById('container-100000').appendChild(newPod);
+            // Show zero downtime badge on node-100000
+            const badge = document.createElement('div');
+            badge.className = 'zero-downtime-badge';
+            badge.textContent = '✅ 0s Downtime';
+            document.getElementById('container-100000').appendChild(badge);
+        }, 4500);
+
+        setTimeout(() => {
+            setProgress(78, 'Hardware Reset...');
+            setGauge(30, '#d97706');
+            addLog('Initiating hardware reset (GPU Thermal Flush).', 'normal');
+            const node99 = document.getElementById('node-99999');
+            node99.classList.remove('isolated');
+            node99.classList.add('recycling');
+            document.getElementById('name-99999').innerText = 'Node-99999 (RECYCLING)';
+            document.getElementById('name-99999').style.color = 'var(--primary)';
+            document.getElementById('container-99999').innerHTML = '<span class="pod-placeholder" style="color:var(--primary)">♻️ PURGING VRAM...</span>';
+            document.getElementById('metrics-99999').innerHTML = '<span>Resetting...</span><span>Cooling...</span>';
+        }, 7000);
+
+        setTimeout(() => {
+            setProgress(100, 'Recovery Complete ✓');
+            setGauge(5, '#059669');
+            stopTimer();
+            addLog('5. Uncordon: Node-99999 returned to pool.', 'api');
+            addLog('K8s: Taint applied → Node-99999 re-assigned to lightweight tasks.', 'warn');
+            const node99 = document.getElementById('node-99999');
+            node99.classList.remove('recycling');
+            document.getElementById('name-99999').innerText = 'Node-99999 (Graceful Degradation)';
+            document.getElementById('name-99999').style.color = 'var(--accent)';
+            document.getElementById('container-99999').innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; width: 100%; padding: 5px; box-sizing: border-box;">
+                    <div style="font-size: 0.75rem; font-weight: bold; color: var(--text); margin-bottom: 8px; letter-spacing: 0.5px;">RE-ASSIGNED TASKS</div>
+                    <div style="display:flex; justify-content: space-around; width: 100%; margin-bottom: 4px;">
+                        <div style="text-align:center; font-size: 0.65rem; color: var(--text-dim);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                            <div style="margin-top:2px;">Web<br>Server</div>
+                        </div>
+                        <div style="text-align:center; font-size: 0.65rem; color: var(--text-dim);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><polyline points="9 15 11 17 15 13"></polyline></svg>
+                            <div style="margin-top:2px;">Compress<br>Logs</div>
+                        </div>
+                        <div style="text-align:center; font-size: 0.65rem; color: var(--text-dim);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.26l3.08-3.31"/></svg>
+                            <div style="margin-top:2px;">CI/CD<br>Test</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('gpu-val').innerHTML = `GPU Out: 4.000000`;
+            document.getElementById('sdc-status').innerHTML = '✓ INTEGRITY VERIFIED';
+            document.getElementById('sdc-status').style.color = 'var(--success)';
+            document.getElementById('metrics-99999').innerHTML = '<span>Temp: 41°C</span><span>Volt: 0.9V</span>';
+            // Show summary card
+            document.getElementById('summary-card').style.display = 'block';
+            btn.disabled = true;
+            btn.innerText = 'SIMULATION COMPLETED';
+        }, 10000);
+    }
+</script>
+</body>
+</html>
